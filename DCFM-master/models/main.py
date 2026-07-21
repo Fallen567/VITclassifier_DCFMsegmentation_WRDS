@@ -116,7 +116,7 @@ class AugAttentionModule(nn.Module):
         attention_sort = torch.sort(attention_bmm, dim=-1, descending=True)[1]
         attention_sort = torch.sort(attention_sort, dim=-1)[1]
         #####
-        attention_positive_num = torch.ones_like(attention).cuda()
+        attention_positive_num = torch.ones_like(attention)
         attention_positive_num[attention_bmm < 0] = 0
         att_pos_mask = attention_positive_num.clone()
         attention_positive_num = torch.sum(attention_positive_num, dim=-1, keepdim=True).expand_as(attention_sort)
@@ -167,16 +167,10 @@ class AttLayer(nn.Module):
         x_w = x_w.mean(-1)
         x_w = x_w.view(B, -1)   # B, HW
         x_w = F.softmax(x_w, dim=-1)  # B, HW
-        #####  mine ######
-        # x_w_max = torch.max(x_w, -1)
-        # max_indices0 = x_w_max.indices.unsqueeze(-1).unsqueeze(-1)
         norm0 = F.normalize(x5, dim=1)
-        # norm = norm0.view(B, C, -1)
-        # max_indices = max_indices0.expand(B, C, -1)
-        # seeds = torch.gather(norm, 2, max_indices).unsqueeze(-1)
         x_w = x_w.unsqueeze(1)
         x_w_max = torch.max(x_w, -1).values.unsqueeze(2).expand_as(x_w)
-        mask = torch.zeros_like(x_w).cuda()
+        mask = torch.zeros_like(x_w)
         mask[x_w == x_w_max] = 1
         mask = mask.view(B, 1, H5, W5)
         seeds = norm0 * mask
@@ -309,7 +303,5 @@ class DCFM(nn.Module):
         self.dcfmnet.set_mode(self.mode)
 
     def forward(self, x, gt):
-        ########## Co-SOD ############
         preds = self.dcfmnet(x, gt)
         return preds
-

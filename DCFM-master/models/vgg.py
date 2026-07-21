@@ -65,8 +65,31 @@ class VGG_Backbone(nn.Module):
         )
         
         # pre_train = torch.load(os.path.dirname(__file__) + '/vgg16-397923af.pth')
-        pre_train = torch.load("/scratch/wej36how/codes/DCFM-master/vgg16-397923af.pth")
-        self._initialize_weights(pre_train)
+       # Search for local VGG weights across common folders and extension variants
+        possible_paths = [
+            "vgg16-397923af.pth",
+            "vgg16-397923af.pth.pth",
+            "./vgg16-397923af.pth",
+            os.path.join(os.path.dirname(__file__), "vgg16-397923af.pth"),
+            os.path.join(os.path.dirname(__file__), "..", "vgg16-397923af.pth"),
+            os.path.join(os.path.dirname(__file__), "..", "vgg16-397923af.pth.pth")
+        ]
+
+        vgg_path = None
+        for path in possible_paths:
+            if os.path.exists(path):
+                vgg_path = path
+                break
+
+        if vgg_path:
+            print(f"--> Found local VGG16 weights at: {vgg_path}")
+            pre_train = torch.load(vgg_path, map_location='cpu')
+        else:
+            raise FileNotFoundError(
+                f"\n[ERROR] Could not locate 'vgg16-397923af.pth' in your directory.\n"
+                f"Current directory: {os.getcwd()}\n"
+                f"Please ensure the file is in '{os.getcwd()}' and isn't named 'vgg16-397923af.pth.pth'."
+            )
 
     def forward(self, x):
         x = self.conv1(x)
