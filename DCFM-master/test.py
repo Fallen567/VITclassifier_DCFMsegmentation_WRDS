@@ -6,6 +6,8 @@ from util import save_tensor_img, Logger
 from tqdm import tqdm
 from torch import nn
 import os
+import cv2
+import numpy as np
 from models.main import *
 import argparse
 
@@ -31,55 +33,76 @@ def main(args):
     model.set_mode('test')
 
     for testset in ['NWRD']:
-        if testset == 'CoCA':
-            test_img_path = './data/images/CoCA/'
-            test_gt_path = './data/gts/CoCA/'
-            saved_root = os.path.join(args.save_root, 'CoCA')
-        elif testset == 'CoSOD3k':
-            test_img_path = './data/images/CoSOD3k/'
-            test_gt_path = './data/gts/CoSOD3k/'
-            saved_root = os.path.join(args.save_root, 'CoSOD3k')
-        elif testset == 'CoSal2015':
-            test_img_path = './data/images/CoSal2015/'
-            test_gt_path = './data/gts/CoSal2015/'
-            saved_root = os.path.join(args.save_root, 'CoSal2015')
-        elif testset == 'NWRD':
-            # Point to parent directory so DCFM recognizes 'rust' as the category folder
+        if testset == 'NWRD':
             test_img_path = '../crossvit/results/nwrd22/'
             test_gt_path = '../crossvit/results/nwrd22/'
             saved_root = os.path.join(args.save_root, 'NWRD')
         else:
-            print('Unknown test dataset:', args.dataset)
+            print('Unknown test dataset:', testset)
             continue
 
         test_loader = get_loader(
-            test_img_path, test_gt_path, args.size, 1, istrain=False, shuffle=False, num_workers=2, pin=True
+            test_img_path, test_gt_path, args.size, 1, istrain=False, shuffle=False, num_workers=0, pin=False
         )
 
-        for batch in tqdm(test_loader):
-            inputs = batch[0].to(device).squeeze(0)
-            gts = batch[1].to(device).squeeze(0)
-            subpaths = batch[2]
-            ori_sizes = batch[3]
-
-            scaled_preds = model(inputs, gts)
-            scaled_preds = torch.sigmoid(scaled_preds[-1])
-
-            num = gts.shape[0]
-            for inum in range(num):
-                # Standardize path separators for Windows
-                subpath = subpaths[inum][0].replace('\\', '/')
+        with torch.no_grad():
+            for batch in tqdm(test_loader, desc="Segmenting Subfolders"):
+                subpaths = batch[2]
                 
-                # Determine relative path structure
-                parent_dir = os.path.dirname(subpath)
-                target_dir = os.path.join(saved_root, parent_dir) if parent_dir else saved_root
-                os.makedirs(target_dir, exist_ok=True)
+                # Standardize path separators
+                sample_subpath = subpaths[0][0].replace('\\', '/')
+                
+                # FLEXIBLE FILTER: Process if 'rust' is anywhere in the folder path
+                if 'rust' not in sample_subpath.lower():
+                    continue
 
-                ori_size = (ori_sizes[inum][0].item(), ori_sizes[inum][1].item())
-                res = nn.functional.interpolate(
-                    scaled_preds[inum].unsqueeze(0), size=ori_size, mode='bilinear', align_corners=True
-                )
-                save_tensor_img(res, os.path.join(saved_root, subpath))
+                inputs = batch[0].to(device).squeeze(0)
+                gts = batch[1].to(device).squeeze(0)
+                ori_sizes = batch[3]
+
+                # Chunking mechanism: Process rust patches in micro-groups of 5
+                total_imgs = inputs.shape[0]
+                CHUNK_SIZE = 5
+                
+                scaled_preds_list = []
+                for start_idx in range(0, total_imgs, CHUNK_SIZE):
+                    end_idx = min(start_idx + CHUNK_SIZE, total_imgs)
+                    chunk_inputs = inputs[start_idx:end_idx]
+                    chunk_gts = gts[start_idx:end_idx]
+                    
+                    chunk_preds = model(chunk_inputs, chunk_gts)
+                    chunk_preds = torch.sigmoid(chunk_preds[-1])
+                    scaled_preds_list.append(chunk_preds)
+                
+                scaled_preds = torch.cat(scaled_preds_list, dim=0)
+
+                num = gts.shape[0]
+                for inum in range(num):
+                    subpath = subpaths[inum][0].replace('\\', '/')
+                    parent_dir = os.path.dirname(subpath)
+                    
+                    target_dir = os.path.join(saved_root, parent_dir) if parent_dir else saved_root
+                    os.makedirs(target_dir, exist_ok=True)
+
+                    heatmap_dir = os.path.join(saved_root, 'heatmaps', parent_dir) if parent_dir else os.path.join(saved_root, 'heatmaps')
+                    os.makedirs(heatmap_dir, exist_ok=True)
+
+                    ori_size = (ori_sizes[inum][0].item(), ori_sizes[inum][1].item())
+                    res = nn.functional.interpolate(
+                        scaled_preds[inum].unsqueeze(0), size=ori_size, mode='bilinear', align_corners=True
+                    )
+                    
+                    filename = os.path.basename(subpath)
+                    
+                    # 1. Save standard prediction mask
+                    save_tensor_img(res, os.path.join(target_dir, filename))
+
+                    # 2. Save colorized JET Heatmap
+                    pred_np = res.squeeze().cpu().numpy()
+                    pred_uint8 = (pred_np * 255).astype(np.uint8)
+                    heatmap_colored = cv2.applyColorMap(pred_uint8, cv2.COLORMAP_JET)
+
+                    cv2.imwrite(os.path.join(heatmap_dir, f"heatmap_{filename}"), heatmap_colored)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='DCFM Co-salient Feature Extraction')

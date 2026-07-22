@@ -28,7 +28,8 @@ class Eval_thread():
 
         if continue_eval:
             s = self.Eval_Smeasure()
-            if s > self.dataset2smeasure_bottom_bound[self.dataset]:
+            bottom_bound = self.dataset2smeasure_bottom_bound.get(self.dataset, 0.0)
+            if s > bottom_bound:
                 mae = self.Eval_mae()
                 Em = self.Eval_Emeasure()
                 max_e = Em.max().item()
@@ -294,7 +295,8 @@ class Eval_thread():
             trans = transforms.Compose([transforms.ToTensor()])
             for pred, gt in self.loader:
                 if self.cuda:
-                    pred = trans(pred).cuda()
+                    device = torch.device("cuda" if (self.cuda and torch.cuda.is_available()) else "cpu")
+                    pred = trans(pred).to(device)
                     pred = (pred - torch.min(pred)) / (torch.max(pred) -
                                                        torch.min(pred) + 1e-20)
                     gt = trans(gt).cuda()
@@ -387,7 +389,7 @@ class Eval_thread():
     def _object(self, pred, gt):
         temp = pred[gt == 1]
         x = temp.mean()
-        sigma_x = temp.std()
+        sigma_x = temp.std(unbiased=False)
         score = 2.0 * x / (x * x + 1.0 + sigma_x + 1e-20)
 
         return score

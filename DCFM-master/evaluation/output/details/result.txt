@@ -1,0 +1,1 @@
+nwrd22 (DCFM-epfinal): 0.0000 max-Emeasure || nan S-measure  || 0.0000 max-fm || 1.0000 mae || 0.0000 mean-Emeasure || 0.0000 mean-fm.

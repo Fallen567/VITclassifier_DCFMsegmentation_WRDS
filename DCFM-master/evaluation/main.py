@@ -179,22 +179,22 @@ def main(cfg):
     else:
         dataset_names = cfg.datasets.split('+')
 
-    num_model_eval = Config().val_last
+    num_model_eval = 1
     threads = []
     # model -> ckpt -> dataset
-    for method in method_names:
-        epochs = os.listdir(os.path.join(cfg.pred_dir, method))[-num_model_eval:][::-1]
-        for epoch in epochs:
-            continue_eval = True
-            for dataset in dataset_names:
-                loader = EvalDataset(
-                    os.path.join(cfg.pred_dir, method, epoch, dataset),        # preds
-                    os.path.join(cfg.gt_dir, dataset)                   # GT
-                )
-                print('Evaluating predictions from {}'.format(os.path.join(cfg.pred_dir, method, epoch, dataset)))
-                thread = Eval_thread(loader, method, dataset, cfg.output_dir, epoch, cfg.cuda)
-                info, continue_eval = thread.run(continue_eval=continue_eval)
-                print(info)
+    # Direct evaluation loop (Bypasses method/epoch subfolders)
+    for dataset in dataset_names:
+        # Check if dataset subfolder exists in GT, otherwise use gt_dir directly
+        gt_path = os.path.join(cfg.gt_dir, dataset) if os.path.exists(os.path.join(cfg.gt_dir, dataset)) else cfg.gt_dir
+        
+        loader = EvalDataset(
+            os.path.join(cfg.pred_dir, dataset),  # Points to ../CoSODmaps/pred/NWRD
+            gt_path                               # Points to ../crossvit/results/nwrd22
+        )
+        print('Evaluating predictions from {}'.format(os.path.join(cfg.pred_dir, dataset)))
+        thread = Eval_thread(loader, "DCFM", dataset, cfg.output_dir, "final", cfg.cuda)
+        info, continue_eval = thread.run(continue_eval=True)
+        print(info)
 
 
 if __name__ == "__main__":
@@ -207,6 +207,6 @@ if __name__ == "__main__":
     parser.add_argument('--output_dir', type=str, default='./output/details', help='saving measurements here.')
     parser.add_argument('--output_figure', type=str, default='./output/figures', help='saving figures here.')
 
-    parser.add_argument('--cuda', type=bool, default=True)
+    parser.add_argument('--cuda', action='store_true', default=False)
     config = parser.parse_args()
     main(config)
