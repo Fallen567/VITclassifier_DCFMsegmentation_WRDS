@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Co-Salient Feature Extraction for Wheat Rust Disease Segmentation
 
 This repository contains the code and resources for the paper:
@@ -87,3 +88,6 @@ If you use this code or dataset, please cite:
 ## Acknowledgements
 
 Code builds on [DCFM](https://github.com/siyueyu/DCFM).
+=======
+# VITclassifier_DCFMsegmentation_WRDS
+>>>>>>> 28f27fd0faaa378c89de5d5a47d7ba2d8f3e5c19
