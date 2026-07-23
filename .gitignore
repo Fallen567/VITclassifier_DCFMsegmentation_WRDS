@@ -18,3 +18,19 @@ saved_models/
 env/
 .vscode/
 .idea/
+
+# Ignore all generated prediction and GT patch directories
+**/CoSODmaps/
+**/gt_patches/
+**/gt_patches_exact/
+**/nwrd22_stitched/
+
+# Ignore image files generated in evaluation/stitching runs
+*.png
+*.jpg
+*.jpeg
+
+# Ignore Python cache & virtual envs
+__pycache__/
+*.pyc
+.vscode/

@@ -1,60 +1,63 @@
 import os
 import cv2
-import numpy as np
-from tqdm import tqdm
+import glob
 
-pred_patch_dir = r"D:\downloads_v2\academic docs\tukl_internship\codefiles\DCFM_ViT\Co-salient-feature-extraction-for-WRD\DCFM-master\CoSODmaps\pred\NWRD\nwrd22\rust"
-full_gt_dir    = r"D:\downloads_v2\academic docs\tukl_internship\codefiles\DCFM_ViT\Co-salient-feature-extraction-for-WRD\data\NWRD_test\masks"
-output_gt_patches = r"D:\downloads_v2\academic docs\tukl_internship\codefiles\DCFM_ViT\Co-salient-feature-extraction-for-WRD\data\NWRD_test\gt_patches\rust"
+# Set your paths based on your workspace
+full_masks_dir = r"..\data\NWRD_test\masks"
+rust_patches_dir = r"..\data\NWRD_test\rust"
+output_gt_dir = r"..\data\NWRD_test\gt_patches_exact\rust"
 
-os.makedirs(output_gt_patches, exist_ok=True)
+os.makedirs(output_gt_dir, exist_ok=True)
 
-patches = [f for f in os.listdir(pred_patch_dir) if f.endswith(('.png', '.jpg'))]
+# Grid parameters (standard 224x224 patch grid used during ViT cropping)
+PATCH_SIZE = 224  
 
-# Group predicted patches by original image ID (e.g. '105' from '105_patch_1.png')
-image_groups = {}
-for p in patches:
-    img_id = p.split('_patch_')[0]
-    image_groups.setdefault(img_id, []).append(p)
+# Get all rust patch names
+patch_paths = glob.glob(os.path.join(rust_patches_dir, "*.png")) + glob.glob(os.path.join(rust_patches_dir, "*.jpg"))
 
-print(f"Cropping Ground Truth masks into patches for {len(image_groups)} images...")
+print(f"Found {len(patch_paths)} rust patches. Cropping matching GT mask patches...")
 
-total_cropped = 0
-
-for img_id, patch_files in tqdm(image_groups.items(), desc="Cropping GT Masks"):
-    gt_path = os.path.join(full_gt_dir, f"{img_id}.png")
-    if not os.path.exists(gt_path):
-        gt_path = os.path.join(full_gt_dir, f"{img_id}.jpg")
-    if not os.path.exists(gt_path):
-        print(f"Warning: Full GT mask for image '{img_id}' not found. Skipping.")
+for patch_path in patch_paths:
+    patch_filename = os.path.basename(patch_path) # e.g. "25_patch_5.png"
+    
+    # Extract base image ID (e.g., "25") and patch index (e.g., "5")
+    parts = patch_filename.replace('.png', '').replace('.jpg', '').split('_patch_')
+    if len(parts) < 2:
         continue
-
-    gt_full = cv2.imread(gt_path, cv2.IMREAD_GRAYSCALE)
-    if gt_full is None:
+        
+    img_id, patch_num = parts[0], int(parts[1])
+    
+    # Find full GT mask (e.g., "25.png")
+    full_mask_path = os.path.join(full_masks_dir, f"{img_id}.png")
+    if not os.path.exists(full_mask_path):
+        full_mask_path = os.path.join(full_masks_dir, f"{img_id}.jpg")
+        
+    if not os.path.exists(full_mask_path):
+        print(f"Warning: Full mask for {img_id} not found at {full_mask_path}")
         continue
+        
+    # Read full mask
+    full_mask = cv2.imread(full_mask_path, cv2.IMREAD_GRAYSCALE)
+    h, w = full_mask.shape
+    
+    # Calculate grid position based on patch number
+    # Assuming standard left-to-right, top-to-bottom grid slicing
+    cols = w // PATCH_SIZE
+    row = patch_num // cols
+    col = patch_num % cols
+    
+    y1, y2 = row * PATCH_SIZE, (row + 1) * PATCH_SIZE
+    x1, x2 = col * PATCH_SIZE, (col + 1) * PATCH_SIZE
+    
+    # Crop GT patch
+    gt_patch = full_mask[y1:y2, x1:x2]
+    
+    # Ensure dimensions match patch size exactly
+    if gt_patch.shape[0] != PATCH_SIZE or gt_patch.shape[1] != PATCH_SIZE:
+        gt_patch = cv2.resize(gt_patch, (PATCH_SIZE, PATCH_SIZE), interpolation=cv2.INTER_NEAREST)
+        
+    # Save cropped GT patch
+    save_path = os.path.join(output_gt_dir, patch_filename)
+    cv2.imwrite(save_path, gt_patch)
 
-    H, W = gt_full.shape
-    num_patches = len(patch_files)
-    grid_size = int(np.ceil(np.sqrt(num_patches)))
-    p_h, p_w = H // grid_size, W // grid_size
-
-    # Sort patches by patch number numerical index
-    patch_files.sort(key=lambda x: int(x.split('_patch_')[1].split('.')[0]) if '_patch_' in x and x.split('_patch_')[1].split('.')[0].isdigit() else x)
-
-    for idx, p_file in enumerate(patch_files):
-        # Crop region from full GT
-        r, c = idx // grid_size, idx % grid_size
-        y1, y2 = r * p_h, (r + 1) * p_h if r < grid_size - 1 else H
-        x1, x2 = c * p_w, (c + 1) * p_w if c < grid_size - 1 else W
-
-        gt_patch = gt_full[y1:y2, x1:x2]
-
-        # Standardize GT to clean binary 0 or 255
-        _, gt_patch_bin = cv2.threshold(gt_patch, 128, 255, cv2.THRESH_BINARY)
-
-        # Save with exact same filename as the predicted patch
-        out_path = os.path.join(output_gt_patches, p_file)
-        cv2.imwrite(out_path, gt_patch_bin)
-        total_cropped += 1
-
-print(f"\nDone! Successfully generated {total_cropped} GT patches in:\n{output_gt_patches}")
+print(f"Done! Saved GT patches to {output_gt_dir}")
