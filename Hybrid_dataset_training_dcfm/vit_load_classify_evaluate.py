@@ -3,6 +3,7 @@ import sys
 import cv2
 import torch
 import shutil
+import types
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -11,29 +12,45 @@ from torchvision import transforms
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
 
 # ==========================================
+# 0. HUGGINGFACE UNPICKLING PATCH (From test.py)
+# ==========================================
+import torch.nn as nn
+import transformers.models.vit.modeling_vit as vit_module
+
+class DummyModule(nn.Module):
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+
+class DynamicVitModule(types.ModuleType):
+    def __getattr__(self, name):
+        return DummyModule
+
+vit_module.__class__ = DynamicVitModule
+
+# ==========================================
 # 1. PATHS & DIRECTORY SETUP
 # ==========================================
-# Script parent directory: Hybrid_dataset_training_dcfm
 SCRIPT_DIR = Path(__file__).parent.resolve()
+PARENT_DIR = SCRIPT_DIR.parent
+CROSSVIT_DIR = PARENT_DIR / "crossvit"
 
-# Output folder for grouped DCFM input
+# System paths
+sys.path.insert(0, str(PARENT_DIR))
+sys.path.insert(0, str(CROSSVIT_DIR))
+
+# Path for DCFM input output inside Hybrid_dataset_training_dcfm
 DCFM_OUT_DIR = SCRIPT_DIR / "rust_classified_patches_of_hybrid_dataset"
-
-# CrossViT directory (sibling folder to Hybrid_dataset_training_dcfm)
-CROSSVIT_DIR = SCRIPT_DIR.parent / "crossvit"
-sys.path.append(str(CROSSVIT_DIR))
 WEIGHTS_PATH = CROSSVIT_DIR / "22.pth"
 
 # Original Hybrid Dataset path
 HYBRID_DATASET_DIR = Path(r"D:\downloads_v2\academic docs\tukl_internship\dataset\FRDIxNWRD_hybrid")
 SPLITS = ["train", "val", "test"]
 
-# Parameters matching research paper specifications
 RUST_THRESHOLD = 150  # GT threshold: >= 150 rust pixels = Class 1 (Rust)
-GROUP_SIZE = 12       # Paper specification: N = 12 for DCFM
+GROUP_SIZE = 12       # N = 12 patches per group for DCFM
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# Image transformations required by CrossViT
+# Image transformations for 224x224 ViT input
 vit_transform = transforms.Compose([
     transforms.Resize((224, 224)),
     transforms.ToTensor(),
@@ -41,31 +58,28 @@ vit_transform = transforms.Compose([
 ])
 
 # ==========================================
-# 2. LOAD PRETRAINED CROSSVIT (22.pth)
+# 2. LOAD PRETRAINED ViT MODEL (22.pth)
 # ==========================================
 def load_crossvit():
-    print(f"🚀 Loading CrossViT model from: {WEIGHTS_PATH}")
+    print(f"🚀 Loading ViT model from: {WEIGHTS_PATH}")
     print(f"🖥️ Using device: {DEVICE}")
 
-    try:
-        import models.crossvit as crossvit_models
-        model = crossvit_models.crossvit_15_224(num_classes=2)
-    except Exception:
-        import crossvit as crossvit_models
-        model = crossvit_models.crossvit_15_224(num_classes=2)
-
+    # Load the model directly using torch.load
     checkpoint = torch.load(WEIGHTS_PATH, map_location=DEVICE)
-    
-    if isinstance(checkpoint, dict) and "model" in checkpoint:
-        model.load_state_dict(checkpoint["model"])
-    elif isinstance(checkpoint, dict) and "state_dict" in checkpoint:
-        model.load_state_dict(checkpoint["state_dict"])
+
+    if isinstance(checkpoint, torch.nn.Module):
+        model = checkpoint
+    elif isinstance(checkpoint, dict):
+        from transformers import ViTForImageClassification
+        model = ViTForImageClassification.from_pretrained('google/vit-base-patch16-224', num_labels=2)
+        state_dict = checkpoint.get("model", checkpoint.get("state_dict", checkpoint))
+        model.load_state_dict(state_dict)
     else:
-        model.load_state_dict(checkpoint)
+        model = checkpoint
 
     model.to(DEVICE)
     model.eval()
-    print("✅ Pretrained CrossViT loaded successfully!\n")
+    print("✅ Pretrained ViT model loaded successfully on GTX 1080!\n")
     return model
 
 # ==========================================
@@ -83,11 +97,9 @@ def process_and_evaluate(model):
             print(f"⚠️ Missing patch directories for split: {split}. Skipping...")
             continue
 
-        # Target directories inside rust_classified_patches_of_hybrid_dataset
         split_out_img_dir = DCFM_OUT_DIR / split / "images"
         split_out_mask_dir = DCFM_OUT_DIR / split / "masks"
 
-        # Clear previous run outputs for this split if present
         if (DCFM_OUT_DIR / split).exists():
             shutil.rmtree(DCFM_OUT_DIR / split)
 
@@ -123,11 +135,13 @@ def process_and_evaluate(model):
 
             with torch.no_grad():
                 outputs = model(tensor_img)
-                pred_label = torch.argmax(outputs, dim=1).item()
+                # Handle Hugging Face SequenceClassifierOutput vs PyTorch Tensor
+                logits = outputs.logits if hasattr(outputs, "logits") else outputs
+                pred_label = torch.argmax(logits, dim=1).item()
 
             y_pred.append(pred_label)
 
-            # Collect ViT-classified RUST (Class 1) patches for DCFM
+            # Collect ViT-classified RUST patches (Class 1) for DCFM
             if pred_label == 1:
                 vit_rust_patches.append((filename, img_path, mask_path))
 
@@ -152,7 +166,7 @@ def process_and_evaluate(model):
         print(f"   • F1-Score  : {f1 * 100:.2f}%")
         print(f"   • Confusion Matrix [TN, FP / FN, TP]:\n{cm}\n")
 
-        # Save CSV log inside hybrid dataset split folder
+        # Save CSV log inside split folder
         df = pd.DataFrame(results)
         df.to_csv(split_dir / "vit_evaluation_results.csv", index=False)
 
