@@ -29,7 +29,7 @@ This achieves higher segmentation performance with **5× less training time** co
 
 ## Dataset
 
-The **NWRD** (Nathiagali Wheat Rust Disease) dataset is a real-world segmentation dataset of wheat rust diseased and healthy leaf images, specifically constructed for semantic segmentation of wheat rust disease. It consists of 100 annotated images with binary masks.
+The **NWRD** (Nust Wheat Rust Disease) dataset is a real-world segmentation dataset of wheat rust diseased and healthy leaf images, specifically constructed for semantic segmentation of wheat rust disease. It consists of 100 annotated images with binary masks.
 
 Sample images from NWRD — rust disease regions with binary masks:
 
