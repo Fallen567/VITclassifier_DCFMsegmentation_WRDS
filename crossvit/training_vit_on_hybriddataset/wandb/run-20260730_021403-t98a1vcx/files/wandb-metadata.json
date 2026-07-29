@@ -1,0 +1,44 @@
+{
+  "os": "Windows-10-10.0.26200-SP0",
+  "python": "CPython 3.11.15",
+  "startedAt": "2026-07-29T21:14:03.076892Z",
+  "args": [
+    "--wandb_key",
+    "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"
+  ],
+  "program": "D:\\downloads_v2\\academic docs\\tukl_internship\\codefiles\\DCFM_ViT\\Co-salient-feature-extraction-for-WRD\\crossvit\\training_vit_on_hybriddataset\\train.py",
+  "codePath": "crossvit\\training_vit_on_hybriddataset\\train.py",
+  "codePathLocal": "train.py",
+  "git": {
+    "remote": "https://github.com/Fallen567/VITclassifier_DCFMsegmentation_WRDS.git",
+    "commit": "6d5707f34bc1d03845cec76910320e3c14c48976"
+  },
+  "email": "hammadasimkayani@gmail.com",
+  "root": "D:\\downloads_v2\\academic docs\\tukl_internship\\codefiles\\DCFM_ViT\\Co-salient-feature-extraction-for-WRD\\crossvit\\training_vit_on_hybriddataset",
+  "host": "DESKTOP-MRP9Q7T",
+  "executable": "C:\\Users\\hamma\\anaconda3\\envs\\dcfm_env\\python.exe",
+  "cpu_count": 6,
+  "cpu_count_logical": 12,
+  "gpu": "NVIDIA GeForce GTX 1080",
+  "gpu_count": 1,
+  "disk": {
+    "/": {
+      "total": "2000392548352",
+      "used": "345789943808"
+    }
+  },
+  "memory": {
+    "total": "17101799424"
+  },
+  "gpu_nvidia": [
+    {
+      "name": "NVIDIA GeForce GTX 1080",
+      "memoryTotal": "8589934592",
+      "cudaCores": 2560,
+      "architecture": "Pascal",
+      "uuid": "GPU-055d344e-b548-e1ed-d5ac-730f984cc722"
+    }
+  ],
+  "cudaVersion": "12.7",
+  "writerId": "uizqrgvy27jv5ic1pad6nvljqjytb65p"
+}

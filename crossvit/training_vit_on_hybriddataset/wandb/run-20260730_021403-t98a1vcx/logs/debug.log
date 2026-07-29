@@ -1,0 +1,13 @@
+2026-07-30 02:14:03,093 INFO    MainThread:9784 [wandb_setup.py:_flush():81] Current SDK version is 0.28.1
+2026-07-30 02:14:03,093 INFO    MainThread:9784 [wandb_setup.py:_flush():81] Configure stats pid to 9784
+2026-07-30 02:14:03,093 INFO    MainThread:9784 [wandb_setup.py:_flush():81] Loading settings from environment variables
+2026-07-30 02:14:03,093 INFO    MainThread:9784 [wandb_init.py:setup_run_log_directory():729] Logging user logs to D:\downloads_v2\academic docs\tukl_internship\codefiles\DCFM_ViT\Co-salient-feature-extraction-for-WRD\crossvit\training_vit_on_hybriddataset\wandb\run-20260730_021403-t98a1vcx\logs\debug.log
+2026-07-30 02:14:03,093 INFO    MainThread:9784 [wandb_init.py:setup_run_log_directory():730] Logging internal logs to D:\downloads_v2\academic docs\tukl_internship\codefiles\DCFM_ViT\Co-salient-feature-extraction-for-WRD\crossvit\training_vit_on_hybriddataset\wandb\run-20260730_021403-t98a1vcx\logs\debug-internal.log
+2026-07-30 02:14:03,094 INFO    MainThread:9784 [wandb_init.py:init():772] calling init triggers
+2026-07-30 02:14:03,094 INFO    MainThread:9784 [wandb_init.py:init():777] wandb.init called with sweep_config: {}
+config: {'dataset_dir': 'D:\\downloads_v2\\academic docs\\tukl_internship\\dataset\\FRDIxNWRD_hybrid', 'epochs': 50, 'batch_size': 8, 'lr': 3e-08, 'weight_decay': 0.001, 'save_dir': './checkpoints_vit', 'resume': None, 'wandb_project': 'crossvit_rust_classifier_new', 'wandb_key': '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', '_wandb': {}}
+2026-07-30 02:14:03,094 INFO    MainThread:9784 [wandb_init.py:init():820] starting backend
+2026-07-30 02:14:03,094 INFO    MainThread:9784 [wandb_init.py:init():835] sending inform_init request
+2026-07-30 02:14:03,607 INFO    MainThread:9784 [wandb_init.py:init():840] backend started and connected
+2026-07-30 02:14:03,609 INFO    MainThread:9784 [wandb_init.py:init():910] updated telemetry
+2026-07-30 02:14:03,707 INFO    MainThread:9784 [wandb_init.py:init():933] communicating run to backend with 90.0 second timeout
